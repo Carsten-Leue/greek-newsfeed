@@ -1,0 +1,5 @@
+node_modules/
+output/
+*.epub
+.env
+npm-debug.log*

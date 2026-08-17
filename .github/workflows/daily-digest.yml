@@ -1,0 +1,63 @@
+name: Täglicher Pressespiegel
+
+on:
+  schedule:
+    # 04:30 UTC entspricht ca. 07:30 Uhr in Athen im Sommer (EEST) bzw.
+    # 06:30 Uhr im Winter (EET) – in beiden Faellen frueh morgens.
+    - cron: '30 4 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Nur AZW3/MOBI erzeugen, keine Mail versenden'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: daily-digest
+  cancel-in-progress: false
+
+jobs:
+  build-and-send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Code auschecken
+        uses: actions/checkout@v4
+
+      - name: Node.js einrichten
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Abhängigkeiten installieren
+        run: npm ci
+
+      - name: Calibre installieren (fuer ebook-convert AZW3/MOBI)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends calibre
+
+      - name: Pressespiegel erstellen und versenden
+        env:
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_SECURE: ${{ secrets.SMTP_SECURE }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          MAIL_FROM: ${{ secrets.MAIL_FROM }}
+          KINDLE_EMAIL: ${{ secrets.KINDLE_EMAIL }}
+          OUTPUT_FORMAT: ${{ vars.OUTPUT_FORMAT || 'azw3' }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+        run: npm start
+
+      - name: E-Book als Artefakt hochladen (nur bei Dry-Run)
+        if: ${{ github.event.inputs.dry_run == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: pressespiegel
+          path: output/*.*
+          retention-days: 3

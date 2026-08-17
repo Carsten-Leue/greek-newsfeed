@@ -1,0 +1,35 @@
+{
+  "name": "greek-newsfeed-kindle",
+  "version": "1.0.0",
+  "description": "Griechische Newsfeeds taeglich als E-Book fuer Kindle Paperwhite aufbereitet und per Mail versendet",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node src/index.mjs",
+    "dry-run": "DRY_RUN=true node src/index.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Carsten-Leue/greek-newsfeed.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Carsten-Leue/greek-newsfeed/issues"
+  },
+  "homepage": "https://github.com/Carsten-Leue/greek-newsfeed#readme",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@extractus/article-extractor": "^9.0.0",
+    "cheerio": "^1.2.0",
+    "dotenv": "^17.4.2",
+    "epub-gen-memory": "^1.1.2",
+    "nodemailer": "^9.0.5",
+    "p-limit": "^7.3.1",
+    "rss-parser": "^3.13.0"
+  }
+}
