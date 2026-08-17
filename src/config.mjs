@@ -11,8 +11,12 @@ function int(value, fallback) {
   return Number.isFinite(n) ? n : fallback;
 }
 
+const VALID_FORMATS = new Set(['azw3', 'mobi']);
+const requestedFormat = (process.env.OUTPUT_FORMAT || 'azw3').toLowerCase();
+
 export const config = {
   timezone: process.env.TIMEZONE || 'Europe/Athens',
+  outputFormat: VALID_FORMATS.has(requestedFormat) ? requestedFormat : 'azw3',
   feedsFile: process.env.FEEDS_FILE || path.join(process.cwd(), 'config', 'feeds.json'),
   maxItemsPerFeed: int(process.env.MAX_ITEMS_PER_FEED, 8),
   feedTimeoutMs: int(process.env.FEED_TIMEOUT_MS, 15000),

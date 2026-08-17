@@ -1,9 +1,11 @@
 import nodemailer from 'nodemailer';
+import { CONTENT_TYPES } from './convertEbook.mjs';
 
-// Emails the EPUB buffer as an attachment to the Kindle's "Send to Kindle"
-// address(es). Amazon converts/delivers it to the device automatically once
-// the sender address is on the account's approved personal document list.
-export async function sendDigestMail({ mailConfig, buffer, filename, dateLabel }) {
+// Emails the AZW3/MOBI buffer as an attachment to the Kindle's "Send to
+// Kindle" address(es). Amazon delivers native Kindle formats straight to the
+// device once the sender address is on the account's approved personal
+// document list, without any server-side conversion step.
+export async function sendDigestMail({ mailConfig, buffer, filename, dateLabel, format }) {
   const missing = ['host', 'user', 'pass', 'from'].filter((k) => !mailConfig[k]);
   if (missing.length > 0) {
     throw new Error(`Fehlende SMTP-Konfiguration: ${missing.join(', ')}`);
@@ -23,12 +25,12 @@ export async function sendDigestMail({ mailConfig, buffer, filename, dateLabel }
     from: mailConfig.from,
     to: mailConfig.to,
     subject: `Griechischer Pressespiegel – ${dateLabel}`,
-    text: 'Der heutige griechische Pressespiegel ist als EPUB angehängt.',
+    text: `Der heutige griechische Pressespiegel ist als ${format.toUpperCase()} angehängt.`,
     attachments: [
       {
         filename,
         content: buffer,
-        contentType: 'application/epub+zip',
+        contentType: CONTENT_TYPES[format] || 'application/octet-stream',
       },
     ],
   });

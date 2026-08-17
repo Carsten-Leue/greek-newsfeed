@@ -1,9 +1,10 @@
 # Greek Newsfeed Kindle Digest
 
 Stellt jeden Morgen automatisch einen "Pressespiegel" aus griechischen
-Nachrichten-RSS-Feeds zusammen, packt ihn als EPUB und schickt ihn per
-E-Mail an die "Send to Kindle"-Adresse eines Kindle Paperwhite (oder jedes
-anderen Kindle). Der Versand läuft über einen täglichen GitHub-Actions-Job.
+Nachrichten-RSS-Feeds zusammen, packt ihn als natives Kindle-E-Book
+(AZW3 oder MOBI) und schickt ihn per E-Mail an die "Send to
+Kindle"-Adresse eines Kindle Paperwhite (oder jedes anderen Kindle). Der
+Versand läuft über einen täglichen GitHub-Actions-Job.
 
 ## Wie es funktioniert
 
@@ -18,13 +19,16 @@ anderen Kindle). Der Versand läuft über einen täglichen GitHub-Actions-Job.
    entfernt, damit das E-Book klein bleibt und auf dem E-Ink-Display schnell
    und sauber rendert. Schlägt die Extraktion fehl (Paywall, Timeout, ...),
    wird die RSS-Zusammenfassung als Fallback verwendet.
-4. `src/lib/buildEbook.mjs` baut daraus ein EPUB (ein Kapitel pro Quelle,
-   plus eine Übersichtsseite mit Datum und Status aller Feeds).
-5. `src/lib/sendMail.mjs` verschickt das EPUB per SMTP als Anhang an die
-   Kindle-Mailadresse. Amazon konvertiert/liefert es automatisch auf das
-   Gerät.
-6. `.github/workflows/daily-digest.yml` führt das Ganze jeden Morgen
-   automatisch aus.
+4. `src/lib/buildEbook.mjs` baut daraus zunächst ein EPUB (ein Kapitel pro
+   Quelle, plus eine Übersichtsseite mit Datum und Status aller Feeds).
+5. `src/lib/convertEbook.mjs` wandelt das EPUB mit Calibres
+   Kommandozeilentool `ebook-convert` in das native Kindle-Format AZW3
+   (Standard) oder MOBI um – kein Umweg über Amazons serverseitige
+   Konvertierung nötig.
+6. `src/lib/sendMail.mjs` verschickt die AZW3-/MOBI-Datei per SMTP als
+   Anhang an die Kindle-Mailadresse.
+7. `.github/workflows/daily-digest.yml` führt das Ganze jeden Morgen
+   automatisch aus (inklusive Installation von Calibre auf dem Runner).
 
 ## Einmalige Einrichtung
 
@@ -37,8 +41,9 @@ anderen Kindle). Der Versand läuft über einen täglichen GitHub-Actions-Job.
    Genehmigte persönliche Dokument-E-Mail-Liste** die Absenderadresse
    eintragen, die für `MAIL_FROM` verwendet wird (z. B. deine Gmail-Adresse).
    Nur E-Mails von genehmigten Absendern werden von Amazon angenommen.
-3. EPUB wird von Kindle-Geräten (Firmware-Update 2022+) direkt
-   unterstützt, eine Konvertierung ist nicht nötig.
+3. AZW3 und MOBI sind Kindle-Eigenformate und werden von jedem Kindle,
+   auch dem Paperwhite 7 (2014), nativ ohne weitere Konvertierung
+   gelesen.
 
 ### 2. SMTP-Postfach zum Versenden
 
@@ -62,7 +67,14 @@ repository secret** folgende Secrets anlegen:
 | `MAIL_FROM`   | Absenderadresse (muss bei Amazon genehmigt sein)             |
 | `KINDLE_EMAIL`| Send-to-Kindle-Adresse(n), kommagetrennt für mehrere Geräte  |
 
-### 4. Zeitplan
+### 4. Format wählen (optional)
+
+Standardmäßig wird **AZW3** erzeugt (moderneres KF8-Format, bessere
+Formatierung). Wer stattdessen MOBI möchte, legt unter **Settings →
+Secrets and variables → Actions → Variables** eine Repository-Variable
+`OUTPUT_FORMAT` mit Wert `mobi` an.
+
+### 5. Zeitplan
 
 Der Workflow läuft per Cron um `30 4 * * *` (UTC), das entspricht ca.
 07:30 Uhr im griechischen Sommer (EEST) bzw. 06:30 Uhr im Winter (EET) –
@@ -71,19 +83,31 @@ beides morgens. Zeit bei Bedarf in
 
 Der Workflow lässt sich zusätzlich jederzeit manuell über **Actions →
 Täglicher Pressespiegel → Run workflow** starten, optional mit Haken bei
-"Nur EPUB erzeugen, keine Mail versenden" (Dry-Run, EPUB landet als
+"Nur AZW3/MOBI erzeugen, keine Mail versenden" (Dry-Run, Datei landet als
 Artefakt am Workflow-Run).
 
 ## Lokal testen
+
+Für die Formatkonvertierung wird [Calibre](https://calibre-ebook.com/)
+benötigt (stellt das Kommandozeilentool `ebook-convert` bereit):
+
+```bash
+# Debian/Ubuntu
+sudo apt-get install calibre
+# macOS
+brew install --cask calibre
+```
+
+Dann:
 
 ```bash
 npm install
 npm run dry-run
 ```
 
-Erzeugt `output/Pressespiegel-YYYY-MM-DD.epub` ohne eine E-Mail zu
-versenden. Für einen echten Testversand `.env` aus `.env.example`
-anlegen und ausfüllen, dann:
+Erzeugt `output/Pressespiegel-YYYY-MM-DD.azw3` (bzw. `.mobi` mit
+`OUTPUT_FORMAT=mobi`) ohne eine E-Mail zu versenden. Für einen echten
+Testversand `.env` aus `.env.example` anlegen und ausfüllen, dann:
 
 ```bash
 npm start
@@ -106,13 +130,14 @@ korrigieren oder den Feed entfernen.
 
 | Variable               | Default              | Bedeutung                                    |
 | ----------------------- | --------------------- | --------------------------------------------- |
+| `OUTPUT_FORMAT`         | `azw3`                 | `azw3` oder `mobi`                            |
 | `TIMEZONE`              | `Europe/Athens`       | Zeitzone für Datum/Zeit-Anzeige im Digest     |
 | `MAX_ITEMS_PER_FEED`    | `8`                    | Max. Artikel pro Quelle                       |
 | `FETCH_FULL_ARTICLES`   | `true`                 | Volltext statt nur RSS-Zusammenfassung laden  |
 | `ARTICLE_TIMEOUT_MS`    | `10000`                | Timeout pro Artikel-Volltext-Abruf            |
 | `ARTICLE_CONCURRENCY`   | `4`                    | Parallele Volltext-Abrufe                     |
 | `FEED_TIMEOUT_MS`       | `15000`                | Timeout pro RSS-Feed-Abruf                    |
-| `DRY_RUN`               | `false`                | EPUB nur lokal speichern, nicht versenden     |
+| `DRY_RUN`               | `false`                | Datei nur lokal speichern, nicht versenden    |
 
 ## Grenzen
 

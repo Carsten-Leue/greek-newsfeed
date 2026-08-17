@@ -7,6 +7,7 @@ import { config, loadFeeds } from './config.mjs';
 import { fetchAllFeeds } from './lib/fetchFeeds.mjs';
 import { extractArticleBody } from './lib/extractArticle.mjs';
 import { buildDigestEpub } from './lib/buildEbook.mjs';
+import { convertEbook } from './lib/convertEbook.mjs';
 import { sendDigestMail } from './lib/sendMail.mjs';
 
 async function enrichWithFullArticles(results) {
@@ -56,21 +57,24 @@ async function main() {
 
   console.log('Erstelle EPUB ...');
   const now = new Date();
-  const { buffer, dateLabel } = await buildDigestEpub({ results, date: now, timezone: config.timezone });
+  const { buffer: epubBuffer, dateLabel } = await buildDigestEpub({ results, date: now, timezone: config.timezone });
+
+  console.log(`Konvertiere nach ${config.outputFormat.toUpperCase()} ...`);
+  const buffer = await convertEbook(epubBuffer, config.outputFormat);
 
   const isoDate = new Intl.DateTimeFormat('en-CA', { timeZone: config.timezone }).format(now);
-  const filename = `Pressespiegel-${isoDate}.epub`;
+  const filename = `Pressespiegel-${isoDate}.${config.outputFormat}`;
 
   if (config.dryRun) {
     await mkdir(config.outputDir, { recursive: true });
     const outPath = path.join(config.outputDir, filename);
     await writeFile(outPath, buffer);
-    console.log(`DRY_RUN aktiv – EPUB gespeichert unter ${outPath} (kein Mailversand).`);
+    console.log(`DRY_RUN aktiv – Datei gespeichert unter ${outPath} (kein Mailversand).`);
     return;
   }
 
-  console.log(`Sende EPUB an ${config.mail.to.join(', ')} ...`);
-  await sendDigestMail({ mailConfig: config.mail, buffer, filename, dateLabel });
+  console.log(`Sende ${config.outputFormat.toUpperCase()} an ${config.mail.to.join(', ')} ...`);
+  await sendDigestMail({ mailConfig: config.mail, buffer, filename, dateLabel, format: config.outputFormat });
   console.log('Pressespiegel erfolgreich versendet.');
 }
 
